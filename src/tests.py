@@ -1,3 +1,6 @@
+"""
+This script implements some basic tests of the package that should be run before uploading
+"""
 #------------------------------------------------------------------------------
 # Run interactively
 #------------------------------------------------------------------------------
@@ -7,25 +10,25 @@ But first, change the 'path_to_here' variable to your local folder!
 """
 # import os
 # # Manually set path of current file
-# path_to_here = "/Users/muhlbach/Repositories/treebased_synthetic_controls/treebased_synthetic_controls/"
+# path_to_here = "/Users/muhlbach/Repositories/tbscm/src/"
 # # Change path
 # os.chdir(path_to_here)
 #------------------------------------------------------------------------------
 # Libraries
 #------------------------------------------------------------------------------
 # Standard
+import time, random
 import pandas as pd
 import numpy as np
-import time
 
 # User
-from utils import data
-from synthetic_controls import SyntheticControl as SC
-from synthetic_controls import TreeBasedSyntheticControl as TBSC
-from synthetic_controls import ElasticNetSyntheticControl as ENSC
+from tbscm.utils import data
+from tbscm.synthetic_controls import SyntheticControl as SC
+from tbscm.synthetic_controls import TreeBasedSyntheticControl as TBSC
+from tbscm.synthetic_controls import ElasticNetSyntheticControl as ENSC
 
 #------------------------------------------------------------------------------
-# Simple example
+# Settings
 #------------------------------------------------------------------------------
 # Simulation settings
 sim_settings = {
@@ -57,6 +60,13 @@ sim_settings = {
 # Start timer
 t0 = time.time()
 
+# Set seed
+random.seed(1991)
+
+#------------------------------------------------------------------------------
+# Simple example
+#------------------------------------------------------------------------------
+
 # Generate data
 df = data.simulate_data(**sim_settings)
 
@@ -67,8 +77,8 @@ X = df[[col for col in df.columns if "X" in col]]
 
 # Instantiate SC-objects
 sc = SC()
-tbsc = TBSC(max_n_models=5, n_folds=1)
-ensc = ENSC(max_n_models=5, n_folds=1)
+tbsc = TBSC(max_n_models=10)
+ensc = ENSC(max_n_models=10)
 
 # Fit
 sc.fit(Y=Y,W=W,X=X)

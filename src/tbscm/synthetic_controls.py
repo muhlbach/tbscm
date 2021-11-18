@@ -4,13 +4,30 @@
 # Standard
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import ElasticNet
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, KFold, TimeSeriesSplit
+# from sklearn.ensemble import RandomForestRegressor
+# from sklearn.linear_model import ElasticNet
 
 # User
 from .base.base_synthetic_controls import BaseSyntheticControl
 from .estimator.constrained_ols import ConstrainedOLS
+
+#------------------------------------------------------------------------------
+# Local parameters
+#------------------------------------------------------------------------------
+cv_params={'scoring':None,
+       'n_jobs':None,
+       'refit':True,
+       'verbose':0,
+       'pre_dispatch':'2*n_jobs',
+       'error_score':np.nan,
+       'return_train_score':False}
+fold_type="SingleSplit"
+n_cv_folds=1
+shuffle=False
+test_size=0.25
+max_n_models=50
+n_cf_folds=None
+verbose=False
 
 #------------------------------------------------------------------------------
 # Ordinary Synthetic Control Group Method
@@ -29,28 +46,25 @@ class SyntheticControl(BaseSyntheticControl):
                              'coefs_lower_bound_constraint':">=",
                              'coefs_sum_bound':1,
                              'coefs_sum_bound_constraint':"<=",},
-                 cv_params={'scoring':None,
-                            'n_jobs':None,
-                            'refit':True,
-                            'verbose':0,
-                            'pre_dispatch':'2*n_jobs',
-                            'random_state':None,
-                            'error_score':np.nan,
-                            'return_train_score':False},
-                 n_folds=3,
-                 fold_type="KFold",
-                 max_n_models=50,
-                 test_size=0.25,
-                 verbose=False,
+                 cv_params=cv_params,
+                 fold_type=fold_type,
+                 n_cv_folds=n_cv_folds,
+                 shuffle=shuffle,
+                 test_size=test_size,
+                 max_n_models=max_n_models,
+                 n_cf_folds=n_cf_folds,
+                 verbose=verbose,
                  ):
         super().__init__(
             estimator=estimator,
             param_grid=param_grid,
             cv_params=cv_params,
-            n_folds=n_folds,
             fold_type=fold_type,
-            max_n_models=max_n_models,
+            n_cv_folds=n_cv_folds,
+            shuffle=shuffle,
             test_size=test_size,
+            max_n_models=max_n_models,
+            n_cf_folds=n_cf_folds,
             verbose=verbose,
             )
 
@@ -67,45 +81,27 @@ class TreeBasedSyntheticControl(BaseSyntheticControl):
     # Constructor function
     # --------------------
     def __init__(self,
-                 estimator=RandomForestRegressor(min_weight_fraction_leaf=0.0,
-                                                 min_impurity_decrease=0.0,
-                                                 bootstrap=False,
-                                                 oob_score=False,
-                                                 n_jobs=None,
-                                                 random_state=None,
-                                                 verbose=0,
-                                                 warm_start=False,
-                                                 ccp_alpha=0.0,
-                                                 max_samples=None),
-                 param_grid={'n_estimators': 500,
-                             'max_depth': [2,4,8,16,None],
-                             'min_samples_split': [2,4,8,16],
-                             'min_samples_leaf': [1,2,4,8],
-                             'max_features': [1/4,1/3,1/2,2/3, 'sqrt','log2'],
-                             'max_leaf_nodes': None,
-                             },
-                 cv_params={'scoring':None,
-                            'n_jobs':None,
-                            'refit':True,
-                            'verbose':0,
-                            'pre_dispatch':'2*n_jobs',
-                            'random_state':None,
-                            'error_score':np.nan,
-                            'return_train_score':False},
-                 n_folds=3,
-                 fold_type="KFold",
-                 max_n_models=50,
-                 test_size=0.25,
-                 verbose=False,
-                 ):
+                 estimator="RandomForestRegressor",
+                 param_grid=None,
+                cv_params=cv_params,
+                fold_type=fold_type,
+                n_cv_folds=n_cv_folds,
+                shuffle=shuffle,
+                test_size=test_size,
+                max_n_models=max_n_models,
+                n_cf_folds=n_cf_folds,
+                verbose=verbose,
+                ):
         super().__init__(
             estimator=estimator,
             param_grid=param_grid,
             cv_params=cv_params,
-            n_folds=n_folds,
             fold_type=fold_type,
-            max_n_models=max_n_models,
+            n_cv_folds=n_cv_folds,
+            shuffle=shuffle,
             test_size=test_size,
+            max_n_models=max_n_models,
+            n_cf_folds=n_cf_folds,
             verbose=verbose,
             )
 
@@ -121,40 +117,27 @@ class ElasticNetSyntheticControl(BaseSyntheticControl):
     # Constructor function
     # --------------------
     def __init__(self,
-                 estimator=ElasticNet(fit_intercept=True,
-                                      precompute=False,
-                                      max_iter=1000,
-                                      copy_X=True,
-                                      tol=0.0001,
-                                      warm_start=False,
-                                      positive=False,
-                                      random_state=None,
-                                      selection='cyclic'),
-                 param_grid={"l1_ratio": [1/10, 1/4, 1/2, 3/4, 1],
-                             "alpha": np.exp(np.linspace(start=np.log(100), stop=np.log(0.000001), num=1000)),
-                             },
-                 cv_params={'scoring':None,
-                            'n_jobs':None,
-                            'refit':True,
-                            'verbose':0,
-                            'pre_dispatch':'2*n_jobs',
-                            'random_state':None,
-                            'error_score':np.nan,
-                            'return_train_score':False},
-                 n_folds=3,
-                 fold_type="KFold",
-                 max_n_models=50,
-                 test_size=0.25,
-                 verbose=False,
+                 estimator="ElasticNetCV",
+                 param_grid=None,
+                 cv_params=cv_params,
+                 fold_type=fold_type,
+                 n_cv_folds=n_cv_folds,
+                 shuffle=shuffle,
+                 test_size=test_size,
+                 max_n_models=max_n_models,
+                 n_cf_folds=n_cf_folds,
+                 verbose=verbose,
                  ):
         super().__init__(
             estimator=estimator,
             param_grid=param_grid,
             cv_params=cv_params,
-            n_folds=n_folds,
             fold_type=fold_type,
-            max_n_models=max_n_models,
+            n_cv_folds=n_cv_folds,
+            shuffle=shuffle,
             test_size=test_size,
+            max_n_models=max_n_models,
+            n_cf_folds=n_cf_folds,
             verbose=verbose,
             )
     
