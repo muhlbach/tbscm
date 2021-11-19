@@ -70,23 +70,23 @@ def convert_normal_to_uniform(x, mu="infer", sigma="infer", lower_bound=0, upper
 #------------------------------------------------------------------------------
 # Generate X data
 #------------------------------------------------------------------------------
-def generate_ar_process(T=100, x_p=5, ar_p=3, burnin=50, **kwargs):
-
-    # Extract/generate initial coeffients of X
-    mu = kwargs.get('mu', 0)
-    sigma = kwargs.get('sigma', 1)
-
-    ## Extract/generate parameters for AR
-    const = kwargs.get('const', 0)
-    ar_coefs = kwargs.get('ar_coefs', np.linspace(start=0.5, stop=0, num=ar_p, endpoint=False))
-    error_coef = kwargs.get('error_coef', 1)
-
+def generate_ar_process(T,
+                        p,
+                        AR_lags,
+                        AR_coefs,
+                        burnin=50,
+                        intercept=0,
+                        mu0=0,
+                        sigma0=1,
+                        coef_on_error=1,
+                        **kwargs):
+    
     # Fix AR coefs; flip order and reshape to comformable shape
-    ar_coefs = np.flip(ar_coefs).reshape(-1,1)
+    AR_coefs = np.flip(AR_coefs).reshape(-1,1)
 
     # Generate errors
-    errors = kwargs.get('errors', np.random.multivariate_normal(mean=np.ones(x_p), 
-                                                                cov=np.identity(x_p),
+    errors = kwargs.get('errors', np.random.multivariate_normal(mean=np.ones(p), 
+                                                                cov=np.identity(p),
                                                                 size=T))    
 
     # Generate errors for burn-in period
@@ -97,53 +97,60 @@ def generate_ar_process(T=100, x_p=5, ar_p=3, burnin=50, **kwargs):
     errors_all = np.concatenate((errors_burnin,errors))
 
     # Generate initial value(s)
-    X = mu + sigma * np.random.randn(ar_p,x_p)
+    X = mu0 + sigma0 * np.random.randn(AR_lags,p)
 
     # Simulate AR(p) with burn-in included
     for b in range(burnin+T):
         X = np.concatenate((X,
-                            const + ar_coefs.T @ X[0:ar_p,:] + error_coef * errors_all[b,0:x_p]),
+                            intercept + AR_coefs.T @ X[0:AR_lags,:] + coef_on_error * errors_all[b,0:p]),
                            axis=0)
 
     # Return only the last T observations (we have removed the dependency on the initial draws)
     return X[-T:,]
 
-def generate_iid_process(T=100, x_p=5, distribution="normal", **kwargs):
-
-    # Extract for normal
-    mu = kwargs.get('mu', 0)
-    sigma = kwargs.get('sigma', 1)
-    covariance = kwargs.get('covariance', 0)
-
-    # Extract for uniform
-    lower_bound = kwargs.get('lower_bound', 0)
-    upper_bound = kwargs.get('upper_bound', 1)
-
-    # Construct variance-covariance matrix
-    cov_diag = np.diag(np.repeat(a=sigma**2, repeats=x_p))
-    cov_off_diag= np.ones(shape=(x_p,x_p)) * covariance
-    np.fill_diagonal(a=cov_off_diag, val=0)
-    cov_mat = cov_diag + cov_off_diag
+def generate_iid_process(N,
+                         p,
+                         distribution="normal",
+                         mu=None,
+                         sigma=None,
+                         covariance=None,
+                         lower_bound=None,
+                         upper_bound=None,
+                         **kwargs):
+        
+    DISTRIBUTION_ALLOWED = ["normal", "uniform"]
 
     # Generate X
     if distribution=="normal":
+        if (mu is None) or (sigma is None) or (covariance is None):
+            raise Exception("When 'distribution'=='normal', both 'mu', 'sigma', and 'covariance' must be provided and neither can be None")
+        
+        # Construct variance-covariance matrix
+        cov_diag = np.diag(np.repeat(a=sigma**2, repeats=p))
+        cov_off_diag= np.ones(shape=(p,p)) * covariance
+        np.fill_diagonal(a=cov_off_diag, val=0)
+        cov_mat = cov_diag + cov_off_diag
+        
         # Draw from normal distribution
-        X = np.random.multivariate_normal(mean=np.repeat(a=mu, repeats=x_p), 
+        X = np.random.multivariate_normal(mean=np.repeat(a=mu, repeats=p), 
                                           cov=cov_mat,
-                                          size=T)    
+                                          size=N)    
     elif distribution=="uniform":
+        if (lower_bound is None) or (upper_bound is None):
+            raise Exception("When 'distribution'=='uniform', both 'lower_bound' and 'upper_bound' must be provided and neither can be None")
+        
         # Draw from uniform distribution
         X = np.random.uniform(low=lower_bound,
                               high=upper_bound,
-                              size=(T,x_p))
+                              size=(N,p))
     else:
         raise WrongInputException(input_name="distribution",
                                   provided_input=distribution,
-                                  allowed_inputs=["normal", "uniform"])
+                                  allowed_inputs=DISTRIBUTION_ALLOWED)
                    
     return X
 
-def generate_errors(N=1000, p=5, mu=0, sigma=1, cov_X=0.25, cov_y=0.5):
+def generate_errors(N=1000, p=5, mu=0, sigma=1, cov_X=0.25, cov_X_y=0.5):
 
     # Number of dimensions including y
     n_dim = p+1
@@ -157,7 +164,7 @@ def generate_errors(N=1000, p=5, mu=0, sigma=1, cov_X=0.25, cov_y=0.5):
     cov_off_diag = np.ones(shape=(n_dim,n_dim)) * cov_X
     
     # Update y entries
-    cov_off_diag[p,:] = cov_off_diag[:,p] = cov_y
+    cov_off_diag[p,:] = cov_off_diag[:,p] = cov_X_y
     
     # Set diagonal to zero
     np.fill_diagonal(a=cov_off_diag, val=0)
@@ -214,8 +221,6 @@ def _vectorize_beta(beta,x):
         beta = beta[:x.shape[1]]
     elif isinstance(beta, str):
         if beta=="uniform":
-            beta = np.repeat(a=1/x.shape[1], repeats=x.shape[1])
-        elif beta=="flip_uniform":
             beta = np.repeat(a=1/x.shape[1], repeats=x.shape[1])            
     else:
         raise WrongInputException(input_name="beta",
@@ -241,6 +246,37 @@ def generate_linear_data(x,
                          enforce_limits=False,
                          tol_fstar=100,
                          **kwargs):
+    """
+    Parameters
+    ----------
+    x : np.array or pd.DataFrame
+        Exogeneous data
+    beta : int, list-type or array, optional
+        Coefficients to be multiplied to x. The default is 1.
+    beta_handling : str, optional
+        How to handle beta. The default is "default".
+        if "default", use x'beta
+        if "structural", make it look like some beta was multiplied to x, where it fact we use clever weights
+        
+        
+    include_intercept : bool, optional
+        Add intercept/bias term to x. The default is False.
+    expand : bool, optional
+        Add higher-order terms of x. The default is False.
+    degree : int, optional
+        Degree of higher-order terms if expand==True. The default is 2.
+    interaction_only : bool, optional
+        Whether to focus on interactions when expand==True or also higher order polynomials. The default is False.
+    enforce_limits : bool, optional
+        Enforce f_star to be min(x) <= max(x). The default is False.
+    tol_fstar : float, optional
+        Tolerance when beta_handling="structural". The default is 100.
+
+    Returns
+    -------
+    f_star : np.array
+        Conditional mean of Y
+    """
 
     #
     BETA_HANDLING_ALLOWED = ["default", "structural", "split_order"]
@@ -282,6 +318,10 @@ def generate_linear_data(x,
         f_star = x_all @ beta
 
     elif beta_handling=="structural":
+        """
+        Constrcut Y=f_star, such that
+        f_star = diag(WX')=X_all*beta_uniform, with with summing to one per j and all non-negative.
+        """
         # Get tricky weight matrix, solving diag(WX')=X_all*beta_uniform
         weights = _solve_meta_problem(A=x, B=x_all, w="uniform")        
 
@@ -295,11 +335,13 @@ def generate_linear_data(x,
             raise Exception("Trickiness didn't work as differences are above tolerance")        
         
     elif beta_handling=="split_order":    
-
+        """
+        Apply different beta to each higher-order term, forinstance X*b1 + X^2*b2 + X^3*b3, where beta=[b1,b2,b3]
+        """
         if isinstance(beta, (int, float, str, np.integer)):
             raise Exception("Whenever 'beta_handling'='split_order', then 'beta' cannot be either (int, float, str)")
         elif len(beta)!=degree:
-            raise Exception(f"beta is if length {len(beta)}, but MUST be of length {degree}")
+            raise Exception(f"beta is of length {len(beta)}, but MUST be of length {degree}")
         if not expand:
             raise Exception("Whenever 'beta_handling'='split_order', then 'expand' must be True")
         
@@ -393,26 +435,36 @@ def simulate_data(f,
                   ate=1,
                   eps_mean=0,
                   eps_std=1,
-                  eps_cov_x=0,
-                  eps_cov_y=0,
+                  eps_cov_X=0,
+                  eps_cov_X_y=0,
                   **kwargs):
 
     # Total number of time periods
     T = T0 + T1
 
+    ## Step 1: Generate errors (because they might be used in the generation of X)
+
     # Generate errors
-    errors = generate_errors(N=T, p=X_dim, mu=eps_mean, sigma=eps_std, cov_X=eps_cov_x, cov_y=eps_cov_y)
+    errors = generate_errors(N=T, p=X_dim, mu=eps_mean, sigma=eps_std, cov_X=eps_cov_X, cov_X_y=eps_cov_X_y)
     
     # Generate covariates
     if X_type=="AR":
-        X = generate_ar_process(T=T,
-                                x_p=X_dim,
-                                ar_p=AR_lags,
-                                errors=errors)
+        X = generate_ar_process(
+            T=T,
+            p=X_dim,
+            AR_lags=AR_lags,
+            errors=errors,
+            **kwargs
+            )
                 
     elif X_type=="iid":
-        X = generate_iid_process(T=T,x_p=X_dim,distribution=X_dist, **kwargs)
-    
+        X = generate_iid_process(
+                N=T,
+                p=X_dim,
+                distribution=X_dist,
+                **kwargs
+                )
+            
     # Generate W
     W = np.repeat((0,1), (T0,T1))
 
@@ -425,80 +477,4 @@ def simulate_data(f,
                           pd.DataFrame(data=X,columns=[f"X{d}" for d in range(X.shape[1])])],
                     axis=1)
         
-    return df
-
-def generate_data(dgp="AR1", ar_p=1, n_controls=5, T0=500, T1=50, return_as_df=False, **kwargs):
-    
-    # Valid dgps
-    VALID_DGP = ["AR1"]
-    
-    # Check if dgp is valid
-    if not dgp in VALID_DGP:
-        raise Exception(f"Choice of input 'dgp' must be one of {VALID_DGP}, but is currently 'dgp'")
-    
-    # Total number of time periods
-    T = T0 + T1
-    
-    # Generate data
-    if dgp=="AR1":
-        
-        # Number of control units (columns of X)
-        x_p=5
-        
-        # Numbers of lags in AR
-        ar_p=2
-        
-        # Coefficients in AR
-        ar_coefs=np.array([0.5, 0.25])
-        
-        # Errors of X
-        errors = np.random.multivariate_normal(mean=np.ones(x_p), 
-                                               cov=np.diag(np.ones(x_p)),
-                                               size=T)
-        
-        # Generate X
-        X = generate_ar_process(T=T,
-                                x_p=x_p,
-                                ar_p=ar_p,
-                                ar_coefs=ar_coefs,
-                                errors=errors)
-        
-        # beta coefficients as in X*beta
-        beta = kwargs.get('beta', np.ones(x_p))
-
-
-        # tau as in treatment effect Y1-Y0
-        tau = kwargs.get('tau', 5)
-
-        # Covariance of eps
-        Gamma = kwargs.get('Gamma', np.identity(2))
-        
-        # Error term
-        epsilon = np.random.multivariate_normal(mean=np.zeros(2), cov=Gamma, size=T)
-
-        # Treatment dummy
-        W = np.concatenate((np.repeat(0, repeats=T0), np.repeat(1, repeats=T1)), axis=0)
-        
-        # Potential outcomes
-        Y_baseline = X @ beta
-        Y0 = Y_baseline + epsilon[:,0]
-        Y1 = tau + Y_baseline + epsilon[:,1]
-        
-        # Observed outcome
-        Y_obs = (1-W)*Y0 + W*Y1
-    
-        # Transform data
-        data_output = convert_to_dict_series(Yobs=Y_obs,Ytrue=Y_baseline,Y0=Y0,Y1=Y1,W=W)
-        data_input = convert_to_dict_df(X=X)
-        
-        # Return as df
-        df = pd.concat([pd.DataFrame().from_records(data_output),
-                        data_input["X"]], axis=1)
-        
-        # House-keeping
-        # del X,Y_obs,Y_baseline,Y0,Y1,W,data_output,data_input
-        
-        return df
-        
-    
-                                  
+    return df                                  
