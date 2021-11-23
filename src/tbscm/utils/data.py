@@ -137,6 +137,8 @@ def generate_ar_process(T,
                                                                 cov=np.identity(p),
                                                                 size=T))    
 
+    print(np.corrcoef(errors.T))
+
     # Generate errors for burn-in period
     errors_burnin = np.random.multivariate_normal(mean=np.mean(errors,axis=0), 
                                                   cov=np.cov(errors.T),

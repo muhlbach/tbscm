@@ -38,8 +38,8 @@ data_settings = {
     # Errors
     "eps_mean":0,
     "eps_std":1,
-    "eps_cov_xx":0, # How the X's covary with each other
-    "eps_cov_yy":0.1, # How the X's covary with y
+    "eps_cov_X":0.1, # How the X's covary with each other
+    "eps_cov_X_y":0.1, # How the X's covary with y
     
     # X
     "X_type":"cross_section", #"AR" or "cross_section"

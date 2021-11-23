@@ -42,25 +42,25 @@ max_n_models = 5
 # Data settings
 data_settings = {
     # General    
-    "T0":500,
+    "T0":1000,
     "T1":500,
     "ate":1,
         
     # Errors
     "eps_mean":0,
     "eps_std":1,
-    "eps_cov_xx":0, # How the X's covary with each other
-    "eps_cov_yy":0.1, # How the X's covary with y
+    "eps_cov_X":0.1, # How the X's covary with each other
+    "eps_cov_X_y":0.1, # How the X's covary with y
     
     # X
-    "X_type":"AR",
-    "X_dist":"normal",
+    "X_type":"AR", #"AR" or "cross_section"
+    "X_dist":"normal", #"normal" or "uniform"
     "X_dim":p,
-    "mu":0,
-    "sigma":1,
-    "covariance":0,
-    "lower_bound":1,    
-    "upper_bound":1,
+    "X_mean":0,
+    "X_std":1,
+    "X_covariance":0,
+    "lower_bound":None,    
+    "upper_bound":None,
     "AR_lags":ar_lags,
     "AR_coefs":1/np.exp(np.arange(1,ar_lags+1)),
     
@@ -71,8 +71,8 @@ data_settings = {
     "beta": 'uniform', # 'uniform', int, float, np.ndarray, list, np.array(["uniform","uniform","uniform"]), np.array([0.25, 0.25**2, 0.25**3])
     "beta_handling":"default", # ["default", "structural", "split_order"]
     "include_intercept":False,
-    "expand":True,
-    "degree":3,
+    "expand":False,
+    "degree":1,
     "interaction_only":False,
     "enforce_limits":False,
     
@@ -100,6 +100,11 @@ ate = data_settings["ate"]
 Y = df["Y"]
 W = df["W"]
 X = df[[col for col in df.columns if "X" in col]]
+
+# Check X
+X.describe()
+X.corr()
+
 
 for estimator in estimators:
 
