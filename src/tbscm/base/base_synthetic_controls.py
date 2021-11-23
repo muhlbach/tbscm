@@ -74,12 +74,12 @@ class BaseSyntheticControl(BaseMLRegressor):
         super().fit(X=self.X_pre,y=self.Y_pre)
         
         # Predict Y0 post-treatment
-        self.Y_post_hat = super().predict(X=self.X_post)
+        self.Y_post_hat_ = super().predict(X=self.X_post)
         
         # Get descriptive statistics of Y both pre- and post-treatment
         self.Y_pre_mean_ = self.Y_pre.mean()
         self.Y_post_mean_ = self.Y_post.mean()
-        self.Y_post_hat_mean_ = self.Y_post_hat.mean()
+        self.Y_post_hat_mean_ = self.Y_post_hat_.mean()
         
         # Compute average treatment effect
         self.average_treatment_effet_ = self.Y_post_mean_ - self.Y_post_hat_mean_
@@ -110,7 +110,7 @@ class BaseSyntheticControl(BaseMLRegressor):
     def bootstrap_ate(self, bootstrap_type="circular", n_bootstrap_samples=1000, block_length=5, conf_int=0.95, X_post_treatment=None):
         
         if X_post_treatment is None:
-            Y_post_hat = self.Y_post_hat
+            Y_post_hat = self.Y_post_hat_
         else:
             # Input validation
             X_post_treatment = check_X(X_post_treatment)

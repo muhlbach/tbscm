@@ -70,6 +70,54 @@ def convert_normal_to_uniform(x, mu="infer", sigma="infer", lower_bound=0, upper
 #------------------------------------------------------------------------------
 # Generate X data
 #------------------------------------------------------------------------------
+def multivariate_normal(N,p,mu,sigma,covariance,lower_limit=None, upper_limit=None):
+    
+    if (lower_limit is None) and (upper_limit is None):
+        
+        # Covariance matrix
+        cov_diag = np.diag(np.repeat(a=sigma**2, repeats=p))
+        cov_off_diag = np.ones(shape=(p,p)) * covariance
+        np.fill_diagonal(a=cov_off_diag, val=0)
+        cov_mat = cov_diag + cov_off_diag
+
+        X = pd.DataFrame(np.random.multivariate_normal(mean=np.repeat(a=mu, repeats=p), 
+                                                        cov=cov_mat,
+                                                        size=N))
+
+    else:
+    
+        valid_N = 0
+        X = pd.DataFrame()
+        
+        while valid_N<N:
+            
+            # Generate temporary data without limits
+            X_temp = multivariate_normal(N=N,p=p,mu=mu,sigma=sigma,covariance=covariance,lower_limit=None,upper_limit=None)
+            
+            if lower_limit is None:
+                lower_limit = -np.inf
+            elif upper_limit is None:
+                upper_limit = +np.inf
+
+            if lower_limit>=upper_limit:
+                raise Exception(f"Lower limit (= {lower_limit}) cannot exceed upper limit (= {upper_limit})")
+            
+            # Invalid indices
+            invalid_idx = (X_temp < lower_limit).any(axis=1) | (X_temp > upper_limit).any(axis=1)
+                        
+            # Remove rows that exceed limits
+            X_temp = X_temp.loc[~invalid_idx,:]
+            
+            # Append
+            X = X.append(X_temp, ignore_index=True)
+    
+            valid_N = len(X)
+            
+        X = X.iloc[0:N,:]
+            
+    return X
+
+
 def generate_ar_process(T,
                         p,
                         AR_lags,
@@ -108,15 +156,16 @@ def generate_ar_process(T,
     # Return only the last T observations (we have removed the dependency on the initial draws)
     return X[-T:,]
 
-def generate_iid_process(N,
-                         p,
-                         distribution="normal",
-                         mu=None,
-                         sigma=None,
-                         covariance=None,
-                         lower_bound=None,
-                         upper_bound=None,
-                         **kwargs):
+def generate_cross_sectional_data(N,
+                                  p,
+                                  distribution="normal",
+                                  mu=None,
+                                  sigma=None,
+                                  covariance=None,
+                                  lower_bound=None,
+                                  upper_bound=None,
+                                  dtype="np.darray",
+                                  **kwargs):
         
     DISTRIBUTION_ALLOWED = ["normal", "uniform"]
 
@@ -125,16 +174,14 @@ def generate_iid_process(N,
         if (mu is None) or (sigma is None) or (covariance is None):
             raise Exception("When 'distribution'=='normal', both 'mu', 'sigma', and 'covariance' must be provided and neither can be None")
         
-        # Construct variance-covariance matrix
-        cov_diag = np.diag(np.repeat(a=sigma**2, repeats=p))
-        cov_off_diag= np.ones(shape=(p,p)) * covariance
-        np.fill_diagonal(a=cov_off_diag, val=0)
-        cov_mat = cov_diag + cov_off_diag
+        X = multivariate_normal(N=N,
+                                p=p,
+                                mu=mu,
+                                sigma=sigma,
+                                covariance=covariance,
+                                lower_limit=lower_bound,
+                                upper_limit=upper_bound)
         
-        # Draw from normal distribution
-        X = np.random.multivariate_normal(mean=np.repeat(a=mu, repeats=p), 
-                                          cov=cov_mat,
-                                          size=N)    
     elif distribution=="uniform":
         if (lower_bound is None) or (upper_bound is None):
             raise Exception("When 'distribution'=='uniform', both 'lower_bound' and 'upper_bound' must be provided and neither can be None")
@@ -148,6 +195,12 @@ def generate_iid_process(N,
                                   provided_input=distribution,
                                   allowed_inputs=DISTRIBUTION_ALLOWED)
                    
+    if dtype=="np.darray":
+        X = np.array(X)
+    elif dtype=="pd.DataFrame":
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(X)
+        
     return X
 
 def generate_errors(N=1000, p=5, mu=0, sigma=1, cov_X=0.25, cov_X_y=0.5):
@@ -428,10 +481,12 @@ def generate_friedman_data_2(x, **kwargs):
 def simulate_data(f,
                   T0=500,
                   T1=50,
-                  X_type="AR",
+                  X_type="cross_section",
                   X_dist="normal",
                   X_dim=5,
-                  AR_lags=3,
+                  X_mean=0,
+                  X_std=1,
+                  X_covariance=0,
                   ate=1,
                   eps_mean=0,
                   eps_std=1,
@@ -452,29 +507,36 @@ def simulate_data(f,
         X = generate_ar_process(
             T=T,
             p=X_dim,
-            AR_lags=AR_lags,
             errors=errors,
             **kwargs
             )
                 
-    elif X_type=="iid":
-        X = generate_iid_process(
-                N=T,
-                p=X_dim,
-                distribution=X_dist,
-                **kwargs
-                )
-            
+    elif X_type=="cross_section":
+        X = generate_cross_sectional_data(N=T,
+                                          p=X_dim,
+                                          mu=X_mean,
+                                          sigma=X_std,
+                                          covariance=X_covariance,
+                                          distribution=X_dist,
+                                          **kwargs
+                                          )
+                
     # Generate W
     W = np.repeat((0,1), (T0,T1))
 
+    # Generate Ystar
+    Ystar = f(x=X, **kwargs)
+
     # Generate Y
-    Y = f(x=X, **kwargs) + ate*W + errors[:,-1]
+    Y = Ystar + ate*W + errors[:,-1]
 
     # Collect data
     df = pd.concat(objs=[pd.Series(data=Y,name="Y"),
-                          pd.Series(data=W,name="W"),
-                          pd.DataFrame(data=X,columns=[f"X{d}" for d in range(X.shape[1])])],
+                         pd.Series(data=W,name="W"),
+                         pd.DataFrame(data=X,columns=[f"X{d}" for d in range(X.shape[1])]),
+                         pd.Series(data=Ystar,name="Ystar"), 
+                         pd.Series(data=errors[:,-1],name="U"), 
+                         ],
                     axis=1)
         
     return df                                  

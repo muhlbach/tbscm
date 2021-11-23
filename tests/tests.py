@@ -42,14 +42,14 @@ data_settings = {
     "eps_cov_yy":0.1, # How the X's covary with y
     
     # X
-    "X_type":"AR",
-    "X_dist":"normal",
+    "X_type":"cross_section", #"AR" or "cross_section"
+    "X_dist":"normal", #"normal" or "uniform"
     "X_dim":p,
-    "mu":0,
-    "sigma":1,
-    "covariance":0,
-    "lower_bound":1,    
-    "upper_bound":1,
+    "X_mean":0,
+    "X_std":1,
+    "X_covariance":0.5,
+    "lower_bound":None,    
+    "upper_bound":None,
     "AR_lags":ar_lags,
     "AR_coefs":1/np.exp(np.arange(1,ar_lags+1)),
     
@@ -57,11 +57,11 @@ data_settings = {
     "f":data.generate_linear_data, # generate_linear_data, generate_friedman_data_1, generate_friedman_data_2,
     
     # For f=generate_linear_data
-    "beta": 'uniform', # 'uniform', int, float, np.ndarray, list, np.array(["uniform","uniform","uniform"]), np.array([0.25, 0.25**2, 0.25**3])
+    "beta": 1, # 'uniform', int, float, np.ndarray, list, np.array(["uniform","uniform","uniform"]), np.array([0.25, 0.25**2, 0.25**3])
     "beta_handling":"default", # ["default", "structural", "split_order"]
     "include_intercept":False,
     "expand":True,
-    "degree":3,
+    "degree":2,
     "interaction_only":False,
     "enforce_limits":False,
     

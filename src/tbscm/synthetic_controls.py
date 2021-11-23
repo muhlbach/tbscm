@@ -117,7 +117,7 @@ class ElasticNetSyntheticControl(BaseSyntheticControl):
     # Constructor function
     # --------------------
     def __init__(self,
-                 estimator="ElasticNetCV",
+                 estimator="ElasticNet",
                  param_grid=None,
                  cv_params=cv_params,
                  fold_type=fold_type,
