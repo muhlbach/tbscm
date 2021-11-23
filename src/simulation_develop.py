@@ -67,16 +67,16 @@ data_settings = {
     # Errors
     "eps_mean":0,
     "eps_std":1,
-    "eps_cov_xx":0, # How the X's covary with each other
+    "eps_cov_xx":0.9, # How the X's covary with each other
     "eps_cov_yy":0.1, # How the X's covary with y
     
     # X
-    "X_type":"cross_section", #"AR" or "cross_section"
+    "X_type":"AR", #"AR" or "cross_section"
     "X_dist":"normal", #"normal" or "uniform"
     "X_dim":p,
     "X_mean":0,
     "X_std":1,
-    "X_covariance":0.5,
+    "X_covariance":0,
     "lower_bound":None,    
     "upper_bound":None,
     "AR_lags":ar_lags,
@@ -155,6 +155,9 @@ for sim in range(1,n_sim+1):
     W = df["W"]
     Y0 = Y - W*true_ate # Same as Ystar+df["U"]
     X = df[[col for col in df.columns if "X" in col]]
+    
+    X.describe()
+    X.corr()
     
     # Get indices
     idx_pre = W==0
@@ -335,27 +338,6 @@ try:
 except:
     # Copy
     df_results_all = df_results_overview_pivot
-
-
-
-
-#------------------------------------------------------------------------------
-# Save
-#------------------------------------------------------------------------------
-gg.save(filename="../figures/"+filename+"_distribution"+"_data"+".pdf",
-        **{"format":"pdf",
-            "dpi":100,
-            "limitsize":False,
-            "verbose":False,
-            "bbox_inches":'tight',
-            })
-
-df_settings_all.to_csv(path_or_buf="../settings/"+"settings_master"+".csv", index=True, encoding="utf-8")
-df_results_all.to_csv(path_or_buf="../results/"+"results_master"+".csv", index=False, encoding="utf-8")
-
-save_object_by_pickle(path="../settings/"+filename+"_data"+".pkl",obj=data_settings)
-save_object_by_pickle(path="../settings/"+filename+"_estimation"+".pkl",obj=est_settings)
-df_results.to_csv(path_or_buf="../results/"+filename+"_results"+".csv", index=False, encoding="utf-8")
 
 #------------------------------------------------------------------------------
 # The End

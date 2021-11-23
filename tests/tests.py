@@ -47,7 +47,7 @@ data_settings = {
     "X_dim":p,
     "X_mean":0,
     "X_std":1,
-    "X_covariance":0.5,
+    "X_covariance":0,
     "lower_bound":None,    
     "upper_bound":None,
     "AR_lags":ar_lags,
@@ -57,7 +57,7 @@ data_settings = {
     "f":data.generate_linear_data, # generate_linear_data, generate_friedman_data_1, generate_friedman_data_2,
     
     # For f=generate_linear_data
-    "beta": 1, # 'uniform', int, float, np.ndarray, list, np.array(["uniform","uniform","uniform"]), np.array([0.25, 0.25**2, 0.25**3])
+    "beta": "uniform", # 'uniform', int, float, np.ndarray, list, np.array(["uniform","uniform","uniform"]), np.array([0.25, 0.25**2, 0.25**3])
     "beta_handling":"default", # ["default", "structural", "split_order"]
     "include_intercept":False,
     "expand":True,
